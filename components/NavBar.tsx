@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 type Props = {
-  email: string;
+  displayName: string;
 };
 
-export default function NavBar({ email }: Props) {
+export default function NavBar({ displayName }: Props) {
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -23,7 +23,7 @@ export default function NavBar({ email }: Props) {
         <Link href="/leaderboard">Leaderboard</Link>
       </div>
       <div className="nav-right">
-        <span>{email}</span>
+        <span>{displayName}</span>
         <button onClick={handleLogout}>Log out</button>
       </div>
     </header>

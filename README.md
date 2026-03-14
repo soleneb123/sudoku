@@ -4,13 +4,13 @@ Sudoky is a local-first Sudoku app built with Next.js + React and Supabase auth/
 
 ## Features
 
-- Email/password authentication (sign up + login)
+- Email/password authentication with required unique username at sign-up
 - Home page with 3 Sudoku difficulty levels (easy, medium, hard) in 9x9 format
 - In-game timer
 - Pause/resume controls
 - "Leave game (pause)" behavior with browser-local saved progress
 - Score submission after a solved Sudoku
-- Leaderboard ranked by points then completion time
+- Leaderboard ranked by points then completion time (username only, no email exposed)
 
 ## Scoring
 

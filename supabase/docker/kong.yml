@@ -43,6 +43,10 @@ plugins:
         - apikey
         - authorization
         - content-type
+        - accept
+        - prefer
+        - accept-profile
+        - content-profile
         - x-client-info
         - x-supabase-api-version
       exposed_headers:

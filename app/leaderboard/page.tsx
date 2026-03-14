@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import NavBar from "@/components/NavBar";
 import { assertSupabaseEnv, supabase } from "@/lib/supabase";
 import { ScoreRow } from "@/lib/types";
+import { getOrCreateUsername } from "@/lib/profile";
 import { formatSeconds } from "@/lib/sudoku";
 
 export default function LeaderboardPage() {
   const router = useRouter();
-  const [email, setEmail] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
   const [scores, setScores] = useState<ScoreRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,33 +23,38 @@ export default function LeaderboardPage() {
     }
 
     const load = async () => {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const user = sessionData.session?.user;
-      if (!user) {
-        router.replace("/login");
-        return;
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const user = sessionData.session?.user;
+        if (!user) {
+          router.replace("/login");
+          return;
+        }
+        const username = await getOrCreateUsername(user);
+        setDisplayName(username);
+
+        const { data, error: fetchError } = await supabase
+          .from("scores")
+          .select("id,username,difficulty,completion_seconds,points,created_at")
+          .order("points", { ascending: false })
+          .order("completion_seconds", { ascending: true })
+          .limit(50);
+
+        if (fetchError) {
+          setError(fetchError.message);
+          return;
+        }
+
+        setScores((data as ScoreRow[]) ?? []);
+      } catch (err) {
+        setError((err as Error).message);
       }
-      setEmail(user.email ?? "unknown");
-
-      const { data, error: fetchError } = await supabase
-        .from("scores")
-        .select("id,user_email,difficulty,completion_seconds,points,created_at")
-        .order("points", { ascending: false })
-        .order("completion_seconds", { ascending: true })
-        .limit(50);
-
-      if (fetchError) {
-        setError(fetchError.message);
-        return;
-      }
-
-      setScores((data as ScoreRow[]) ?? []);
     };
 
     load();
   }, [router]);
 
-  if (!email) {
+  if (!displayName) {
     return (
       <main className="container">
         <p>{error ?? "Loading..."}</p>
@@ -58,7 +64,7 @@ export default function LeaderboardPage() {
 
   return (
     <main className="container">
-      <NavBar email={email} />
+      <NavBar displayName={displayName} />
       <section className="card">
         <h1>Leaderboard</h1>
         <p className="text-muted">Ranking by points, then faster completion time.</p>
@@ -78,7 +84,7 @@ export default function LeaderboardPage() {
             {scores.map((score, index) => (
               <tr key={score.id}>
                 <td>{index + 1}</td>
-                <td>{score.user_email}</td>
+                <td>{score.username}</td>
                 <td>{score.difficulty}</td>
                 <td>{formatSeconds(score.completion_seconds)}</td>
                 <td>{score.points}</td>

@@ -6,6 +6,7 @@ import NavBar from "@/components/NavBar";
 import { assertSupabaseEnv, supabase } from "@/lib/supabase";
 import { calculatePoints, createSudoku, formatSeconds, validateProgress } from "@/lib/sudoku";
 import { Difficulty, SudokuGameState } from "@/lib/types";
+import { getOrCreateUsername } from "@/lib/profile";
 
 const GAME_STORAGE_KEY = "sudoky-active-game";
 
@@ -17,7 +18,7 @@ export default function GamePage() {
   const requestedDifficulty = (params.get("difficulty") as Difficulty) || "easy";
   const forceNew = params.get("new") === "1";
 
-  const [email, setEmail] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
   const [game, setGame] = useState<SudokuGameState | null>(null);
   const [selected, setSelected] = useState<{ row: number; col: number } | null>(null);
   const [status, setStatus] = useState<string>("");
@@ -27,6 +28,7 @@ export default function GamePage() {
     () => (difficultyValues.includes(requestedDifficulty) ? requestedDifficulty : "easy"),
     [requestedDifficulty]
   );
+  const isPaused = game?.paused ?? true;
 
   useEffect(() => {
     try {
@@ -36,43 +38,48 @@ export default function GamePage() {
       return;
     }
     const initialize = async () => {
-      const { data } = await supabase.auth.getSession();
-      const user = data.session?.user;
-      if (!user) {
-        router.replace("/login");
-        return;
-      }
-      setEmail(user.email ?? "unknown");
+      try {
+        const { data } = await supabase.auth.getSession();
+        const user = data.session?.user;
+        if (!user) {
+          router.replace("/login");
+          return;
+        }
+        const username = await getOrCreateUsername(user);
+        setDisplayName(username);
 
-      if (!forceNew) {
-        const raw = localStorage.getItem(GAME_STORAGE_KEY);
-        if (raw) {
-          try {
-            const saved = JSON.parse(raw) as SudokuGameState;
-            if (saved.difficulty === difficulty) {
-              setGame(saved);
-              return;
+        if (!forceNew) {
+          const raw = localStorage.getItem(GAME_STORAGE_KEY);
+          if (raw) {
+            try {
+              const saved = JSON.parse(raw) as SudokuGameState;
+              if (saved.difficulty === difficulty) {
+                setGame(saved);
+                return;
+              }
+            } catch {
+              localStorage.removeItem(GAME_STORAGE_KEY);
             }
-          } catch {
-            localStorage.removeItem(GAME_STORAGE_KEY);
           }
         }
+
+        const { puzzle, solution } = createSudoku(difficulty);
+        setGame({
+          puzzle,
+          solution,
+          board: puzzle.map((r) => [...r]),
+          startedAt: Date.now(),
+          elapsedSeconds: 0,
+          paused: false,
+          difficulty
+        });
+
+        setSavedScore(false);
+        setStatus("");
+        localStorage.removeItem(GAME_STORAGE_KEY);
+      } catch (err) {
+        setStatus((err as Error).message);
       }
-
-      const { puzzle, solution } = createSudoku(difficulty);
-      setGame({
-        puzzle,
-        solution,
-        board: puzzle.map((r) => [...r]),
-        startedAt: Date.now(),
-        elapsedSeconds: 0,
-        paused: false,
-        difficulty
-      });
-
-      setSavedScore(false);
-      setStatus("");
-      localStorage.removeItem(GAME_STORAGE_KEY);
     };
 
     initialize();
@@ -90,7 +97,7 @@ export default function GamePage() {
   }, [difficulty, forceNew, router]);
 
   useEffect(() => {
-    if (!game || game.paused || savedScore) {
+    if (isPaused || savedScore) {
       return;
     }
 
@@ -102,7 +109,7 @@ export default function GamePage() {
     }, 1000);
 
     return () => clearInterval(id);
-  }, [game?.paused, savedScore]);
+  }, [isPaused, savedScore]);
 
   const persistAndExit = () => {
     if (!game) return;
@@ -149,7 +156,7 @@ export default function GamePage() {
     const points = calculatePoints(game.difficulty, game.elapsedSeconds);
     const { error } = await supabase.from("scores").insert({
       user_id: user.id,
-      user_email: user.email ?? "unknown",
+      username: await getOrCreateUsername(user),
       difficulty: game.difficulty,
       completion_seconds: game.elapsedSeconds,
       points
@@ -165,7 +172,7 @@ export default function GamePage() {
     setStatus(`Solved. +${points} points recorded.`);
   };
 
-  if (!email || !game) {
+  if (!displayName || !game) {
     return (
       <main className="container">
         <p>Loading...</p>
@@ -190,7 +197,7 @@ export default function GamePage() {
 
   return (
     <main className="container">
-      <NavBar email={email} />
+      <NavBar displayName={displayName} />
       <section className="card">
         <h1>Game ({difficulty})</h1>
         <p>

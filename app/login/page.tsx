@@ -3,11 +3,13 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { assertSupabaseEnv, supabase } from "@/lib/supabase";
+import { isUsernameAvailable, sanitizeUsernameInput } from "@/lib/profile";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +40,25 @@ export default function LoginPage() {
         const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
         if (loginError) throw loginError;
       } else {
-        const { error: signupError } = await supabase.auth.signUp({ email, password });
+        const normalizedUsername = sanitizeUsernameInput(username);
+        if (normalizedUsername.length < 3) {
+          throw new Error("Username must be at least 3 chars (letters, numbers, underscores).");
+        }
+
+        const available = await isUsernameAvailable(normalizedUsername);
+        if (!available) {
+          throw new Error("Username already taken.");
+        }
+
+        const { error: signupError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              username: normalizedUsername
+            }
+          }
+        });
         if (signupError) throw signupError;
       }
       router.replace("/");
@@ -55,6 +75,19 @@ export default function LoginPage() {
         <h1>Sudoky</h1>
         <p className="text-muted">Email and password are required.</p>
         <form onSubmit={onSubmit} style={{ display: "grid", gap: "0.8rem" }}>
+          {mode === "signup" ? (
+            <input
+              type="text"
+              placeholder="Username (letters, numbers, underscore)"
+              value={username}
+              onChange={(e) => setUsername(sanitizeUsernameInput(e.target.value))}
+              required
+              minLength={3}
+              maxLength={20}
+              pattern="^[a-z0-9_]{3,20}$"
+              style={{ padding: "0.7rem", borderRadius: 10, border: "1px solid #d1d5db" }}
+            />
+          ) : null}
           <input
             type="email"
             placeholder="Email"

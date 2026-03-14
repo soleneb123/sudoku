@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import NavBar from "@/components/NavBar";
 import { assertSupabaseEnv, supabase } from "@/lib/supabase";
+import { getOrCreateUsername } from "@/lib/profile";
 import { Difficulty, SudokuGameState } from "@/lib/types";
 
 const GAME_STORAGE_KEY = "sudoky-active-game";
@@ -16,7 +17,7 @@ const labels: Record<Difficulty, string> = {
 
 export default function HomePage() {
   const router = useRouter();
-  const [email, setEmail] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
   const [savedGame, setSavedGame] = useState<SudokuGameState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,14 +29,21 @@ export default function HomePage() {
       return;
     }
 
-    supabase.auth.getSession().then(({ data }) => {
-      const user = data.session?.user;
-      if (!user) {
-        router.replace("/login");
-        return;
+    const load = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const user = data.session?.user;
+        if (!user) {
+          router.replace("/login");
+          return;
+        }
+        const username = await getOrCreateUsername(user);
+        setDisplayName(username);
+      } catch (err) {
+        setError((err as Error).message);
       }
-      setEmail(user.email ?? "unknown");
-    });
+    };
+    load();
 
     const raw = localStorage.getItem(GAME_STORAGE_KEY);
     if (raw) {
@@ -55,7 +63,7 @@ export default function HomePage() {
     );
   }
 
-  if (!email) {
+  if (!displayName) {
     return (
       <main className="container">
         <p>Loading...</p>
@@ -65,7 +73,7 @@ export default function HomePage() {
 
   return (
     <main className="container">
-      <NavBar email={email} />
+      <NavBar displayName={displayName} />
       <section className="card">
         <h1>Sudoku</h1>
         <p className="text-muted">Choose a 9x9 difficulty level.</p>
