@@ -1,22 +1,76 @@
-# Application Sudoku
+# Sudoky
 
-1. sudoku
+Sudoky is a local-first Sudoku app built with Next.js + React and Supabase auth/database.
 
-* Log in
-un email et password est requis pour accéder à la plateforme. 
+## Features
 
-* Page d'acceuil
-choix du niveau de difficulté (3 levels, de format 9x9)
+- Email/password authentication (sign up + login)
+- Home page with 3 Sudoku difficulty levels (easy, medium, hard) in 9x9 format
+- In-game timer
+- Pause/resume controls
+- "Leave game (pause)" behavior with browser-local saved progress
+- Score submission after a solved Sudoku
+- Leaderboard ranked by points then completion time
 
-* Timer
-un timer se lance quand l'utilisateur commence un nouveau sudoku, avec la possibilité de quitter la partie ce qui met le timer en pause.
+## Scoring
 
-* Scores
-les performances du joueur sont enregistrées et rankées dans un classement. chaque partie (=1 soduku résolu) donne un nombre de points au joueur, calculé selon:
-a) le niveau de difficulté
-b) le temps réalisé
+Each solved game gives points based on:
 
-un joueur a donc un nombre de points cumulés à travers toutes les parties jouées, et lorsqu'un benchmark est atteint il obtient un trophée. 
+1. Difficulty (`easy`, `medium`, `hard`)
+2. Completion time (seconds)
 
+Current formula (in code):
 
-2. inscriptions
+- Base points: easy `600`, medium `1000`, hard `1500`
+- Time penalty: `2` points per second
+- Minimum score: `100`
+
+## Stack
+
+- Next.js (App Router)
+- React
+- TypeScript
+- Supabase (`@supabase/supabase-js`)
+
+## Local setup
+
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Add env vars:
+
+```bash
+cp .env.example .env.local
+```
+
+Fill `.env.local` with your Supabase project values:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+3. Create DB table and policies in Supabase SQL editor:
+
+- Run [`supabase/schema.sql`](/Users/maximeabylon/Movies/sudoky/supabase/schema.sql)
+
+4. Start dev server:
+
+```bash
+npm run dev
+```
+
+Open `http://localhost:3000`.
+
+## Routes
+
+- `/login`: authentication page
+- `/`: home page (difficulty selection + resume saved game)
+- `/game?difficulty=easy|medium|hard`: Sudoku game
+- `/leaderboard`: scores ranking
+
+## Notes
+
+- Saved game state is stored in browser `localStorage` under `sudoky-active-game`.
+- The leaderboard uses Supabase table `public.scores`.
