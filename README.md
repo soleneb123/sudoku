@@ -79,7 +79,8 @@ Open `http://localhost:3000`.
 ## Features/améliorations to implement
 
 ### ASAP
-- timer in minutes and not in seconds
+- when a game is finished, submitted, and correct -> redirected to leaderboard
+timer in minutes and not in seconds
 
 ### Sudoku grid layout
 - larger numbers in the grid
@@ -89,6 +90,10 @@ Open `http://localhost:3000`.
 ### Style
 - create new background themes
 - change button name for background
+
+### Gamification
+- rooms for players with the same game -> timing competition
+- mode "contre la montre" with given time -> +1000 points if successful 
 
 ### On main page
 - rules of game (on main page)
