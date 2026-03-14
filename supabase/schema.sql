@@ -17,6 +17,8 @@ create table public.profiles (
 
 create unique index profiles_username_lower_key
   on public.profiles ((lower(username)));
+create unique index profiles_username_key
+  on public.profiles (username);
 
 create table public.scores (
   id uuid primary key default gen_random_uuid(),
@@ -27,6 +29,31 @@ create table public.scores (
   points integer not null check (points >= 0),
   created_at timestamptz not null default now()
 );
+
+create or replace function public.sync_score_username()
+returns trigger
+language plpgsql
+as $$
+declare
+  profile_username text;
+begin
+  select p.username into profile_username
+  from public.profiles p
+  where p.user_id = new.user_id;
+
+  if profile_username is null then
+    raise exception 'No profile found for user_id %', new.user_id;
+  end if;
+
+  new.username := profile_username;
+  return new;
+end;
+$$;
+
+create trigger trg_sync_score_username
+before insert or update on public.scores
+for each row
+execute function public.sync_score_username();
 
 alter table public.profiles enable row level security;
 alter table public.scores enable row level security;

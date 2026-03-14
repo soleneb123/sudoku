@@ -159,7 +159,6 @@ export default function GamePage() {
     const points = calculatePoints(game.difficulty, game.elapsedSeconds);
     const { error } = await supabase.from("scores").insert({
       user_id: user.id,
-      username: await getOrCreateUsername(user),
       difficulty: game.difficulty,
       completion_seconds: game.elapsedSeconds,
       points
