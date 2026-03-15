@@ -120,3 +120,8 @@ Notes:
 - availability of game in french, german, english, japanese
 - printable versions in pdf with choice of diffulty levels (mix, or only 1 level)
 - mobile app
+- son 
+- trophées pour 
+- version offline qui se remet à jour sur l'app dès que reconnecté au wifi
+- option d'annoter dans coin 
+- snapshot of intermediate version, possibility to come back to a previous version
