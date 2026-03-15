@@ -102,16 +102,9 @@ Notes:
 
 
 ## Features/améliorations to implement
-- main page = sudoku, too many clicks to reach it. 
-- deployment
 
 ### ASAP
 - when a game is finished, submitted, and correct -> redirected to leaderboard
-- timer in minutes and not in seconds
-
-### Sudoku grid layout
-- larger numbers in the grid
-- when you click on a number in the grid -> all the numbers in the sudoku are highlighted
 
 ### Style
 - create new background themes
@@ -121,12 +114,9 @@ Notes:
 - rooms for players with the same game -> timing competition
 - mode "contre la montre" with given time -> +1000 points if successful 
 
-### On main page
-- rules of game (on main page)
-- tips/strategies
-
 ### Other
 - contact page for issues
-- availability of game in french, german, english
+- include checkbox with/without help 
+- availability of game in french, german, english, japanese
 - printable versions in pdf with choice of diffulty levels (mix, or only 1 level)
 - mobile app
