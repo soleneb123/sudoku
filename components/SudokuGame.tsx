@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import NavBar from "@/components/NavBar";
 import { getOrCreateUsername } from "@/lib/profile";
@@ -34,7 +34,6 @@ export default function SudokuGame({ basePath = "/" }: Props) {
   const [savedScore, setSavedScore] = useState(false);
   const [isSubmittingScore, setIsSubmittingScore] = useState(false);
   const [victoryLocked, setVictoryLocked] = useState(false);
-  const gameNameRef = useRef<string>("");
 
   const difficulty: Difficulty = useMemo(
     () => (difficultyValues.includes(requestedDifficulty) ? requestedDifficulty : "easy"),
@@ -66,18 +65,14 @@ export default function SudokuGame({ basePath = "/" }: Props) {
           if (raw) {
             try {
               const saved = JSON.parse(raw) as SudokuGameState;
-              if (saved.difficulty === difficulty) {
-                gameNameRef.current = saved.gameName ?? "";
-                setGame(saved);
-                return;
-              }
+              setGame(saved);
+              return;
             } catch {
               localStorage.removeItem(GAME_STORAGE_KEY);
             }
           }
         }
 
-        gameNameRef.current = "";
         const { puzzle, solution } = createSudoku(difficulty);
         setGame({
           puzzle,
@@ -149,15 +144,12 @@ export default function SudokuGame({ basePath = "/" }: Props) {
     }
   }, [activeDigit, digitCounts]);
 
-  const persistAndExit = () => {
-    if (!game) return;
-    const pausedGame = { ...game, gameName: gameNameRef.current.trim() || undefined, paused: true };
-    localStorage.setItem(GAME_STORAGE_KEY, JSON.stringify(pausedGame));
-    setStatus("Game paused and saved.");
-    if (basePath !== "/") {
-      router.replace(basePath);
+  useEffect(() => {
+    if (!game || savedScore) {
+      return;
     }
-  };
+    localStorage.setItem(GAME_STORAGE_KEY, JSON.stringify(game));
+  }, [game, savedScore]);
 
   const updateCell = (row: number, col: number, value: string) => {
     if (!game || game.paused || game.puzzle[row][col] !== 0 || savedScore || isSubmittingScore || victoryLocked) {
@@ -245,19 +237,12 @@ export default function SudokuGame({ basePath = "/" }: Props) {
     if (savedScore || isSubmittingScore || victoryLocked) {
       return;
     }
-    const name = gameNameRef.current.trim() || undefined;
     setGame((prev) => {
       if (!prev) return prev;
-      const next = { ...prev, gameName: name, paused: !prev.paused };
+      const next = { ...prev, paused: !prev.paused };
       localStorage.setItem(GAME_STORAGE_KEY, JSON.stringify(next));
       return next;
     });
-  };
-
-  const saveProgress = () => {
-    if (!game || savedScore || isSubmittingScore || victoryLocked) return;
-    localStorage.setItem(GAME_STORAGE_KEY, JSON.stringify({ ...game, gameName: gameNameRef.current.trim() || undefined }));
-    setStatus("Progress saved on this browser.");
   };
 
   const selectedValue = selected ? game.board[selected.row]?.[selected.col] ?? 0 : 0;
@@ -286,31 +271,6 @@ export default function SudokuGame({ basePath = "/" }: Props) {
           ))}
         </div>
 
-        <h2 style={{ marginTop: 0 }}>
-          <input
-            value={game.gameName ?? ""}
-            onChange={(e) => {
-              const name = e.target.value;
-              gameNameRef.current = name;
-              setGame((prev) => (prev ? { ...prev, gameName: name } : prev));
-            }}
-            placeholder="Saved Game"
-            maxLength={40}
-            style={{
-              font: "inherit",
-              fontSize: "1.1em",
-              fontWeight: 700,
-              border: "none",
-              borderBottom: "2px solid #cbd5e1",
-              background: "transparent",
-              outline: "none",
-              width: "100%",
-              padding: "0 0 2px 0"
-            }}
-            aria-label="Game name"
-          />
-        </h2>
-
         <p>
           Difficulty: <strong>{difficultyLabels[game.difficulty]}</strong> | Timer: <strong>{formatSeconds(game.elapsedSeconds)}</strong> | {game.paused ? "Paused" : "Running"}
         </p>
@@ -318,12 +278,6 @@ export default function SudokuGame({ basePath = "/" }: Props) {
         <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
           <button onClick={togglePause} disabled={savedScore || isSubmittingScore || victoryLocked}>
             {game.paused ? "Resume" : "Pause"}
-          </button>
-          <button onClick={saveProgress} disabled={savedScore || isSubmittingScore || victoryLocked}>
-            Save
-          </button>
-          <button onClick={persistAndExit} disabled={savedScore || isSubmittingScore || victoryLocked}>
-            Leave game (pause)
           </button>
         </div>
 
