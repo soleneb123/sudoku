@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import NavBar from "@/components/NavBar";
 import { assertSupabaseEnv, supabase } from "@/lib/supabase";
@@ -24,6 +24,8 @@ export default function GamePage() {
   const [activeDigit, setActiveDigit] = useState<number | null>(null);
   const [status, setStatus] = useState<string>("");
   const [savedScore, setSavedScore] = useState(false);
+  const [isSubmittingScore, setIsSubmittingScore] = useState(false);
+  const [victoryLocked, setVictoryLocked] = useState(false);
   const gameNameRef = useRef<string>("");
 
   const difficulty: Difficulty = useMemo(
@@ -79,6 +81,8 @@ export default function GamePage() {
         });
 
         setSavedScore(false);
+        setIsSubmittingScore(false);
+        setVictoryLocked(false);
         setStatus("");
         localStorage.removeItem(GAME_STORAGE_KEY);
       } catch (err) {
@@ -161,19 +165,28 @@ export default function GamePage() {
     });
   };
 
-  const submitScoreIfSolved = async () => {
-    if (!game || savedScore) {
+  const submitScoreIfSolved = useCallback(async (origin: "auto" | "manual" = "manual") => {
+    if (!game || savedScore || isSubmittingScore) {
       return;
     }
 
     if (!validateProgress(game.board, game.puzzle)) {
-      setStatus("Grid is not solved correctly yet.");
+      if (origin === "auto") {
+        setStatus("Grid is full but has mistakes.");
+      } else {
+        setStatus("Grid is not solved correctly yet.");
+      }
       return;
     }
+
+    setVictoryLocked(true);
+    setIsSubmittingScore(true);
 
     const { data } = await supabase.auth.getSession();
     const user = data.session?.user;
     if (!user) {
+      setVictoryLocked(false);
+      setIsSubmittingScore(false);
       router.replace("/login");
       return;
     }
@@ -188,13 +201,29 @@ export default function GamePage() {
 
     if (error) {
       setStatus(error.message);
+      setVictoryLocked(false);
+      setIsSubmittingScore(false);
       return;
     }
 
     localStorage.removeItem(GAME_STORAGE_KEY);
     setSavedScore(true);
+    setIsSubmittingScore(false);
     setStatus(`Solved. +${points} points recorded.`);
-  };
+  }, [game, isSubmittingScore, router, savedScore]);
+
+  useEffect(() => {
+    if (!game || game.paused || savedScore || isSubmittingScore || victoryLocked) {
+      return;
+    }
+
+    const hasEmptyCell = game.board.some((row) => row.some((value) => value === 0));
+    if (hasEmptyCell) {
+      return;
+    }
+
+    void submitScoreIfSolved("auto");
+  }, [game, isSubmittingScore, savedScore, submitScoreIfSolved, victoryLocked]);
 
   if (!displayName || !game) {
     return (
@@ -205,6 +234,9 @@ export default function GamePage() {
   }
 
   const togglePause = () => {
+    if (savedScore || isSubmittingScore || victoryLocked) {
+      return;
+    }
     const name = gameNameRef.current.trim() || undefined;
     setGame((prev) => {
       if (!prev) return prev;
@@ -215,7 +247,7 @@ export default function GamePage() {
   };
 
   const saveProgress = () => {
-    if (!game) return;
+    if (!game || savedScore || isSubmittingScore || victoryLocked) return;
     localStorage.setItem(GAME_STORAGE_KEY, JSON.stringify({ ...game, gameName: gameNameRef.current.trim() || undefined }));
     setStatus("Progress saved on this browser.");
   };
@@ -244,15 +276,21 @@ export default function GamePage() {
           Timer: <strong>{formatSeconds(game.elapsedSeconds)}</strong> | {game.paused ? "Paused" : "Running"}
         </p>
         <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
-          <button onClick={togglePause}>{game.paused ? "Resume" : "Pause"}</button>
-          <button onClick={saveProgress}>Save</button>
-          <button onClick={persistAndExit}>Leave game (pause)</button>
-          <button className="primary" onClick={submitScoreIfSolved} disabled={savedScore || game.paused}>
-            Submit solved grid
+          <button onClick={togglePause} disabled={savedScore || isSubmittingScore || victoryLocked}>
+            {game.paused ? "Resume" : "Pause"}
+          </button>
+          <button onClick={saveProgress} disabled={savedScore || isSubmittingScore || victoryLocked}>
+            Save
+          </button>
+          <button onClick={persistAndExit} disabled={savedScore || isSubmittingScore || victoryLocked}>
+            Leave game (pause)
           </button>
         </div>
+        <p className="text-muted" style={{ marginTop: "0.6rem" }}>
+          Score is auto-verified and auto-submitted when the grid is fully solved.
+        </p>
 
-        <div className="grid" aria-label="sudoku grid">
+        <div className="grid" aria-label="sudoku grid" style={savedScore || isSubmittingScore || victoryLocked ? { pointerEvents: "none", opacity: 0.65 } : undefined}>
           {game.board.map((rowVals, row) =>
             rowVals.map((value, col) => {
               const fixed = game.puzzle[row][col] !== 0;
@@ -277,7 +315,7 @@ export default function GamePage() {
                 >
                   <input
                     value={value === 0 ? "" : value}
-                    readOnly={fixed || game.paused || savedScore}
+                    readOnly={fixed || game.paused || savedScore || isSubmittingScore || victoryLocked}
                     onFocus={() => {
                       setSelected({ row, col });
                       if (value > 0) {
@@ -305,7 +343,7 @@ export default function GamePage() {
               <button
                 key={digit}
                 type="button"
-                disabled={completed}
+                disabled={completed || savedScore || isSubmittingScore || victoryLocked}
                 onClick={() => setActiveDigit((prev) => (prev === digit ? null : digit))}
                 style={{
                   minWidth: 42,
