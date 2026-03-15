@@ -75,6 +75,31 @@ Open `http://localhost:3000`.
 - Saved game state is stored in browser `localStorage` under `sudoky-active-game`.
 - The leaderboard uses Supabase table `public.scores`.
 
+## GitHub Pages Deploy
+
+This project is configured for static export + GitHub Pages:
+
+- Next config: [`next.config.ts`](/Users/maximeabylon/Movies/sudoky/next.config.ts)
+- Workflow: [`.github/workflows/deploy-pages.yml`](/Users/maximeabylon/Movies/sudoky/.github/workflows/deploy-pages.yml)
+
+Steps:
+
+1. Push your repo to GitHub (default branch `main`).
+2. In GitHub repo settings:
+   - `Settings` -> `Pages` -> `Build and deployment` -> `Source: GitHub Actions`.
+3. In `Settings` -> `Secrets and variables` -> `Actions` -> `Variables`, add:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+4. In Supabase Auth settings, add your Pages URLs to allowed redirects, for example:
+   - `https://<your-user>.github.io/<your-repo>/`
+   - `https://<your-user>.github.io/<your-repo>/login/`
+5. Push to `main`. The workflow will build and deploy automatically.
+
+Notes:
+
+- `NEXT_PUBLIC_BASE_PATH` is injected automatically in CI as `/<repo-name>`.
+- Output is static (`out/`) and published by GitHub Pages.
+
 
 ## Features/améliorations to implement
 - main page = sudoku, too many clicks to reach it. 

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function LegacyGameRedirectPage() {
+function LegacyGameRedirectInner() {
   const router = useRouter();
   const params = useSearchParams();
 
@@ -16,5 +16,13 @@ export default function LegacyGameRedirectPage() {
     <main className="container">
       <p>Redirecting...</p>
     </main>
+  );
+}
+
+export default function LegacyGameRedirectPage() {
+  return (
+    <Suspense fallback={<main className="container"><p>Redirecting...</p></main>}>
+      <LegacyGameRedirectInner />
+    </Suspense>
   );
 }
