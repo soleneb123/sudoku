@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-type ThemeMode = "pink" | "swiss_alp" | "paris" | "leopard" | "yquem";
+type ThemeMode = "pink" | "swiss_alp" | "paris" | "leopard" | "yquem" | "grimpe" | "chocolat";
 
 const STORAGE_KEY = "sudoky-theme-mode";
 const LEGACY_STORAGE_KEY = "sudoky-bg-mode";
@@ -21,6 +21,12 @@ function normalizeTheme(value: string | null): ThemeMode {
   if (value === "yquem") {
     return "yquem";
   }
+  if (value === "grimpe") {
+    return "grimpe";
+  }
+  if (value === "chocolat") {
+    return "chocolat";
+  }
   return "pink";
 }
 
@@ -30,7 +36,9 @@ function applyThemeToBody(theme: ThemeMode) {
     swiss_alp: "/swiss.jpg",
     paris: "/paris.jpeg",
     leopard: "/leopard.jpeg",
-    yquem: "/yquem.jpeg"
+    yquem: "/yquem.jpeg",
+    grimpe: "/grimpe.jpg",
+    chocolat: "/chocolat.jpg"
   };
   const imagePath = imageByTheme[theme];
   document.body.setAttribute("data-theme", theme);
@@ -134,6 +142,24 @@ export default function BackgroundToggle() {
             onClick={() => applyTheme("yquem")}
           >
             Yquem
+          </button>
+          <button
+            type="button"
+            role="menuitemradio"
+            aria-checked={theme === "grimpe"}
+            className={theme === "grimpe" ? "active" : ""}
+            onClick={() => applyTheme("grimpe")}
+          >
+            Grimpe
+          </button>
+          <button
+            type="button"
+            role="menuitemradio"
+            aria-checked={theme === "chocolat"}
+            className={theme === "chocolat" ? "active" : ""}
+            onClick={() => applyTheme("chocolat")}
+          >
+            Chocolat
           </button>
         </div>
       ) : null}

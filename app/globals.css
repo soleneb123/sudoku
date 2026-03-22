@@ -107,6 +107,36 @@ body[data-theme="yquem"] {
   background-attachment: fixed;
 }
 
+body[data-theme="grimpe"] {
+  --grid-line: #6b7f6e;
+  --cell-fixed: #d4e4d6;
+  --cell-selected-outline: #2d5a34;
+  --cell-focus-outline: #6a9e72;
+  --cell-line: #edf5ee;
+  --cell-line-fixed: #c4d8c7;
+  --cell-same: #b6d9bc;
+  --digit-selected-border: #3a7042;
+  background-image: linear-gradient(rgba(230, 245, 232, 0.45), rgba(210, 235, 215, 0.62)), var(--theme-bg-image);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
+body[data-theme="chocolat"] {
+  --grid-line: #8b6347;
+  --cell-fixed: #e8d5c0;
+  --cell-selected-outline: #5c3317;
+  --cell-focus-outline: #a06840;
+  --cell-line: #faf0e6;
+  --cell-line-fixed: #d9c0a8;
+  --cell-same: #e8b88a;
+  --digit-selected-border: #7a4420;
+  background-image: linear-gradient(rgba(255, 240, 220, 0.45), rgba(240, 218, 190, 0.62)), var(--theme-bg-image);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
 a {
   color: inherit;
   text-decoration: none;
