@@ -220,7 +220,7 @@ export default function SudokuGame({ basePath = "/" }: Props) {
           }
         } catch {
           if (mounted) {
-            setDisplayName("Guest");
+            setDisplayName(user.email ?? "Player");
           }
         }
       } catch {
@@ -253,7 +253,7 @@ export default function SudokuGame({ basePath = "/" }: Props) {
         }
       } catch {
         if (mounted) {
-          setDisplayName("Guest");
+          setDisplayName(user.email ?? "Player");
         }
       }
     });
