@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { assertSupabaseEnv, supabase } from "@/lib/supabase";
 import { isUsernameAvailable, sanitizeUsernameInput } from "@/lib/profile";
 import Button from "@/components/Button";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
@@ -56,10 +56,8 @@ export default function LoginPage() {
           email,
           password,
           options: {
-            data: {
-              username: normalizedUsername
-            }
-          }
+            data: { username: normalizedUsername },
+          },
         });
         if (signupError) throw signupError;
       }
@@ -120,5 +118,13 @@ export default function LoginPage() {
         {error ? <p className="text-danger">{error}</p> : null}
       </section>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }
