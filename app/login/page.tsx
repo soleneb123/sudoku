@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -33,6 +34,7 @@ export default function LoginPage() {
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+    setInfo(null);
     setLoading(true);
 
     try {
@@ -40,28 +42,37 @@ export default function LoginPage() {
       if (mode === "login") {
         const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
         if (loginError) throw loginError;
-      } else {
-        const normalizedUsername = sanitizeUsernameInput(username);
-        if (normalizedUsername.length < 3) {
-          throw new Error("Username must be at least 3 chars (letters, numbers, underscores).");
-        }
-
-        const available = await isUsernameAvailable(normalizedUsername);
-        if (!available) {
-          throw new Error("Username already taken.");
-        }
-
-        const { error: signupError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              username: normalizedUsername
-            }
-          }
-        });
-        if (signupError) throw signupError;
+        router.replace("/");
+        return;
       }
+
+      const normalizedUsername = sanitizeUsernameInput(username);
+      if (normalizedUsername.length < 3) {
+        throw new Error("Username must be at least 3 chars (letters, numbers, underscores).");
+      }
+
+      const available = await isUsernameAvailable(normalizedUsername);
+      if (!available) {
+        throw new Error("Username already taken.");
+      }
+
+      const { data, error: signupError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            username: normalizedUsername
+          }
+        }
+      });
+      if (signupError) throw signupError;
+
+      if (!data.session) {
+        setInfo("Compte cree. Verifie ton email puis connecte-toi.");
+        setMode("login");
+        return;
+      }
+
       router.replace("/");
     } catch (err) {
       setError((err as Error).message);
@@ -115,6 +126,7 @@ export default function LoginPage() {
           Switch to {mode === "login" ? "Sign up" : "Log in"}
         </Button>
 
+        {info ? <p>{info}</p> : null}
         {error ? <p className="text-danger">{error}</p> : null}
       </section>
     </main>
