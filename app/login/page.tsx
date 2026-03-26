@@ -6,7 +6,7 @@ import { assertSupabaseEnv, supabase } from "@/lib/supabase";
 import { isUsernameAvailable, sanitizeUsernameInput } from "@/lib/profile";
 import Button from "@/components/Button";
 
-function LoginForm() {
+function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
@@ -15,6 +15,18 @@ function LoginForm() {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+
+  useEffect(() => {
+    const requestedMode = searchParams.get("mode");
+    if (requestedMode === "signup") {
+      setMode("signup");
+      return;
+    }
+    if (requestedMode === "login") {
+      setMode("login");
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     try {
@@ -34,6 +46,7 @@ function LoginForm() {
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+    setInfo(null);
     setLoading(true);
 
     try {
@@ -41,28 +54,38 @@ function LoginForm() {
       if (mode === "login") {
         const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
         if (loginError) throw loginError;
-      } else {
-        const normalizedUsername = sanitizeUsernameInput(username);
-        if (normalizedUsername.length < 3) {
-          throw new Error("Username must be at least 3 chars (letters, numbers, underscores).");
-        }
-
-        const available = await isUsernameAvailable(normalizedUsername);
-        if (!available) {
-          throw new Error("Username already taken.");
-        }
-
-        const { error: signupError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { username: normalizedUsername },
-          },
-        });
-        if (signupError) throw signupError;
+        router.replace("/");
+        return;
       }
-      const next = searchParams.get("next") ?? "/";
-      router.replace(next);
+
+      const normalizedUsername = sanitizeUsernameInput(username);
+      if (normalizedUsername.length < 3) {
+        throw new Error("Username must be at least 3 chars (letters, numbers, underscores).");
+      }
+
+      const available = await isUsernameAvailable(normalizedUsername);
+      if (!available) {
+        throw new Error("Username already taken.");
+      }
+
+      const { data, error: signupError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            username: normalizedUsername
+          }
+        }
+      });
+      if (signupError) throw signupError;
+
+      if (!data.session) {
+        setInfo("Compte cree. Verifie ton email puis connecte-toi.");
+        setMode("login");
+        return;
+      }
+
+      router.replace("/");
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -115,6 +138,7 @@ function LoginForm() {
           Switch to {mode === "login" ? "Sign up" : "Log in"}
         </Button>
 
+        {info ? <p>{info}</p> : null}
         {error ? <p className="text-danger">{error}</p> : null}
       </section>
     </main>
@@ -123,8 +147,8 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense>
-      <LoginForm />
+    <Suspense fallback={null}>
+      <LoginPageContent />
     </Suspense>
   );
 }
