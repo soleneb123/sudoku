@@ -26,6 +26,7 @@ export default function SudokuGame() {
   const forceNew = params.get("new") === "1";
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [displayName, setDisplayName] = useState("");
   const [supabaseConfigured, setSupabaseConfigured] = useState(true);
   const [game, setGame] = useState<SudokuGameState | null>(null);
   const [selected, setSelected] = useState<{ row: number; col: number } | null>(null);
@@ -108,13 +109,15 @@ export default function SudokuGame() {
 
         setIsAuthenticated(true);
         try {
-          await getOrCreateUsername(user);
+          const name = await getOrCreateUsername(user);
+          if (mounted) setDisplayName(name);
         } catch {
-          // profile creation failed, auth still valid
+          if (mounted) setDisplayName(user.email?.split("@")[0] ?? "Player");
         }
       } catch {
         if (mounted) {
           setIsAuthenticated(false);
+          setDisplayName("");
         }
       }
     };
@@ -129,14 +132,16 @@ export default function SudokuGame() {
       const user = session?.user;
       if (!user) {
         setIsAuthenticated(false);
+        setDisplayName("");
         return;
       }
 
       setIsAuthenticated(true);
       try {
-        await getOrCreateUsername(user);
+        const name = await getOrCreateUsername(user);
+        if (mounted) setDisplayName(name);
       } catch {
-        // ignore
+        if (mounted) setDisplayName(user.email?.split("@")[0] ?? "Player");
       }
     });
 
@@ -258,9 +263,7 @@ export default function SudokuGame() {
 
     try {
       const { data, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError) {
-        throw sessionError;
-      }
+      if (sessionError) throw sessionError;
 
       const user = data.session?.user;
       if (!user) {
@@ -272,6 +275,7 @@ export default function SudokuGame() {
 
       const { error } = await supabase.from("scores").insert({
         user_id: user.id,
+        username,
         difficulty: game.difficulty,
         completion_seconds: game.elapsedSeconds,
         points: finalScore
@@ -378,6 +382,8 @@ export default function SudokuGame() {
             <span className="game-bar-sep">·</span>
             <strong>{formatSeconds(game.elapsedSeconds)}</strong>
             {game.paused ? <span className="game-bar-sep text-muted">Paused</span> : null}
+            <span className="game-bar-sep">·</span>
+            <span className="text-muted">{displayName || (isAuthenticated ? "Player" : "Guest")}</span>
           </span>
           <div className="game-controls">
             <BackgroundToggle />
