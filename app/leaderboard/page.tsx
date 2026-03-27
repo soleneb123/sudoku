@@ -89,23 +89,15 @@ export default function LeaderboardPage() {
           router.replace("/login");
           return;
         }
-        const username = await getOrCreateUsername(user);
-        setDisplayName(username);
-        setIsAuthLoading(false);
-
-        const { data, error: fetchError } = await supabase
-          .from("scores")
-          .select("id,username,difficulty,completion_seconds,points,created_at");
-
-        setIsAuthenticated(true);
-
         // Fetch username and scores in parallel
         const [username, scoresResult] = await Promise.all([
           getOrCreateUsername(user),
           supabase.from("scores").select("id,username,difficulty,completion_seconds,points,created_at"),
         ]);
 
+        setIsAuthenticated(true);
         setDisplayName(username);
+        setIsAuthLoading(false);
 
         if (scoresResult.error) {
           setError(scoresResult.error.message);
