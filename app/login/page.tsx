@@ -9,6 +9,7 @@ import Button from "@/components/Button";
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [identifier, setIdentifier] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
@@ -52,7 +53,27 @@ function LoginPageContent() {
     try {
       assertSupabaseEnv();
       if (mode === "login") {
-        const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+        const trimmed = identifier.trim().toLowerCase();
+        if (!trimmed) {
+          throw new Error("Username or email is required.");
+        }
+
+        let emailForLogin = trimmed;
+        if (!trimmed.includes("@")) {
+          const { data: mapped, error: mapError } = await supabase.functions.invoke("signin-with-username", {
+            body: { username: trimmed }
+          });
+          if (mapError) throw mapError;
+          if (!mapped?.email) {
+            throw new Error("Unknown username.");
+          }
+          emailForLogin = String(mapped.email);
+        }
+
+        const { error: loginError } = await supabase.auth.signInWithPassword({
+          email: emailForLogin,
+          password
+        });
         if (loginError) throw loginError;
         router.replace("/");
         return;
@@ -79,13 +100,15 @@ function LoginPageContent() {
       });
       if (signupError) throw signupError;
 
-      if (!data.session) {
-        setInfo("Compte cree. Verifie ton email puis connecte-toi.");
-        setMode("login");
-        return;
+      if (data.session) {
+        await supabase.auth.signOut();
       }
 
-      router.replace("/");
+      setInfo("Account created. Please sign in.");
+      setMode("login");
+      setIdentifier(email.trim().toLowerCase());
+      setPassword("");
+      return;
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -97,29 +120,44 @@ function LoginPageContent() {
     <main className="container" style={{ maxWidth: 420, paddingTop: "8vh" }}>
       <section className="card">
         <h1>Sudoku</h1>
-        <p className="text-muted">Email and password are required.</p>
+        <p className="text-muted">
+          {mode === "login"
+            ? "Sign in with username (or email) and password."
+            : "Create account with email, username, and password."}
+        </p>
         <form onSubmit={onSubmit} style={{ display: "grid", gap: "0.8rem" }}>
           {mode === "signup" ? (
+            <>
+              <input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                style={{ padding: "0.7rem", borderRadius: 10, border: "1px solid #d1d5db" }}
+              />
+              <input
+                type="text"
+                placeholder="Username (letters, numbers, underscore)"
+                value={username}
+                onChange={(e) => setUsername(sanitizeUsernameInput(e.target.value))}
+                required
+                minLength={3}
+                maxLength={20}
+                pattern="^[a-z0-9_]{3,20}$"
+                style={{ padding: "0.7rem", borderRadius: 10, border: "1px solid #d1d5db" }}
+              />
+            </>
+          ) : (
             <input
               type="text"
-              placeholder="Username (letters, numbers, underscore)"
-              value={username}
-              onChange={(e) => setUsername(sanitizeUsernameInput(e.target.value))}
+              placeholder="Username or email"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               required
-              minLength={3}
-              maxLength={20}
-              pattern="^[a-z0-9_]{3,20}$"
               style={{ padding: "0.7rem", borderRadius: 10, border: "1px solid #d1d5db" }}
             />
-          ) : null}
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            style={{ padding: "0.7rem", borderRadius: 10, border: "1px solid #d1d5db" }}
-          />
+          )}
           <input
             type="password"
             placeholder="Password"
@@ -135,7 +173,7 @@ function LoginPageContent() {
         </form>
 
         <Button style={{ marginTop: "0.8rem" }} onClick={() => setMode(mode === "login" ? "signup" : "login")}>
-          Switch to {mode === "login" ? "Sign up" : "Log in"}
+          {mode === "login" ? "No account yet? Sign up" : "Already have an account? Sign in"}
         </Button>
 
         {info ? <p>{info}</p> : null}
