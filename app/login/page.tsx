@@ -3,7 +3,9 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { assertSupabaseEnv, supabase } from "@/lib/supabase";
+import { useAuthProfile } from "@/lib/hooks/useAuthProfile";
 import { isUsernameAvailable, sanitizeUsernameInput } from "@/lib/profile";
+import { withTimeout } from "@/lib/withTimeout";
 import Button from "@/components/Button";
 import { QUERY_PARAMS, ROUTES } from "@/lib/constants";
 import { useT } from "@/lib/i18n/useT";
@@ -12,6 +14,7 @@ function LoginPageContent() {
   const router = useRouter();
   const t = useT();
   const searchParams = useSearchParams();
+  const { isAuthenticated, isLoading: isAuthLoading, isSupabaseConfigured } = useAuthProfile();
   const [identifier, setIdentifier] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,19 +36,15 @@ function LoginPageContent() {
   }, [searchParams]);
 
   useEffect(() => {
-    try {
-      assertSupabaseEnv();
-    } catch (err) {
-      setError((err as Error).message);
+    if (!isSupabaseConfigured) {
+      setError("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
       return;
     }
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        router.replace(ROUTES.HOME);
-      }
-    });
-  }, [router]);
+    if (!isAuthLoading && isAuthenticated) {
+      router.replace(ROUTES.HOME);
+    }
+  }, [isAuthLoading, isAuthenticated, isSupabaseConfigured, router]);
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -63,9 +62,13 @@ function LoginPageContent() {
 
         let emailForLogin = trimmed;
         if (!trimmed.includes("@")) {
-          const { data: mapped, error: mapError } = await supabase.functions.invoke("signin-with-username", {
-            body: { username: trimmed }
-          });
+          const { data: mapped, error: mapError } = await withTimeout(
+            supabase.functions.invoke("signin-with-username", {
+              body: { username: trimmed }
+            }),
+            10000,
+            "Username lookup"
+          );
           if (mapError) {
             const status =
               (mapError as { context?: { status?: number }; status?: number }).context?.status ??
@@ -86,10 +89,14 @@ function LoginPageContent() {
           emailForLogin = String(mapped.email);
         }
 
-        const { error: loginError } = await supabase.auth.signInWithPassword({
-          email: emailForLogin,
-          password
-        });
+        const { error: loginError } = await withTimeout(
+          supabase.auth.signInWithPassword({
+            email: emailForLogin,
+            password
+          }),
+          10000,
+          "Sign in"
+        );
         if (loginError) throw loginError;
         router.replace(ROUTES.HOME);
         return;

@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getOrCreateUsername } from "@/lib/profile";
 import Button from "@/components/Button";
 import BackgroundToggle from "@/components/BackgroundToggle";
-import { assertSupabaseEnv, supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
+import { useAuthProfile } from "@/lib/hooks/useAuthProfile";
 import { calculatePoints, createSudoku, formatSeconds, validateProgress } from "@/lib/sudoku";
+import { withTimeout } from "@/lib/withTimeout";
 import { Difficulty, SudokuGameState } from "@/lib/types";
 import { DIFFICULTY_VALUES, QUERY_PARAMS, ROUTES } from "@/lib/constants";
 import { useT } from "@/lib/i18n/useT";
@@ -32,9 +33,8 @@ export default function SudokuGame() {
   const localDate = getLocalDateKey();
   const dailyDate = isIsoDateKey(requestedDailyDate) ? requestedDailyDate : localDate;
   const gameStorageKey = isDailyMode ? getDailyGameStorageKey(dailyDate) : STANDARD_GAME_STORAGE_KEY;
+  const { isAuthenticated, user, isSupabaseConfigured: supabaseConfigured, isLoading: isAuthLoading } = useAuthProfile();
 
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [supabaseConfigured, setSupabaseConfigured] = useState(true);
   const [game, setGame] = useState<SudokuGameState | null>(null);
   const [selected, setSelected] = useState<{ row: number; col: number } | null>(null);
   const [activeDigit, setActiveDigit] = useState<number | null>(null);
@@ -114,21 +114,16 @@ export default function SudokuGame() {
         return;
       }
 
-      try {
-        assertSupabaseEnv();
-      } catch {
+      if (!supabaseConfigured) {
         setStatus(t("game.dailyNotConfigured"));
         return;
       }
 
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError) {
-        throw sessionError;
+      if (isAuthLoading) {
+        return;
       }
 
-      const user = sessionData.session?.user;
       if (!user) {
-        setIsAuthenticated(false);
         router.replace(`${ROUTES.LOGIN}?${QUERY_PARAMS.MODE}=login`);
         return;
       }
@@ -193,76 +188,7 @@ export default function SudokuGame() {
     return () => {
       cancelled = true;
     };
-  }, [dailyDate, difficulty, forceNew, gameStorageKey, isDailyMode, router, t]);
-
-  useEffect(() => {
-    try {
-      assertSupabaseEnv();
-      setSupabaseConfigured(true);
-    } catch {
-      setSupabaseConfigured(false);
-      setIsAuthenticated(false);
-      return;
-    }
-
-    let mounted = true;
-
-    const syncAuth = async () => {
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        if (error) {
-          throw error;
-        }
-
-        if (!mounted) {
-          return;
-        }
-
-        const user = data.session?.user;
-        if (!user) {
-          setIsAuthenticated(false);
-          return;
-        }
-
-        setIsAuthenticated(true);
-        try {
-          await getOrCreateUsername(user);
-        } catch {
-          // profile creation failed, auth still valid
-        }
-      } catch {
-        if (mounted) {
-          setIsAuthenticated(false);
-        }
-      }
-    };
-
-    void syncAuth();
-
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!mounted) {
-        return;
-      }
-
-      const user = session?.user;
-      if (!user) {
-        setIsAuthenticated(false);
-        return;
-      }
-
-      setIsAuthenticated(true);
-      try {
-        await getOrCreateUsername(user);
-      } catch {
-        // ignore
-      }
-    });
-
-    return () => {
-      mounted = false;
-      sub.subscription.unsubscribe();
-    };
-  }, []);
+  }, [dailyDate, difficulty, forceNew, gameStorageKey, isAuthLoading, isDailyMode, router, supabaseConfigured, t, user]);
 
   useEffect(() => {
     if (isPaused || savedScore || victoryLocked) {
@@ -373,29 +299,28 @@ export default function SudokuGame() {
     }
 
     setIsSubmittingScore(true);
+    setStatus("");
+
+    let saved = false;
 
     try {
-      const { data, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError) {
-        throw sessionError;
-      }
-
-      const user = data.session?.user;
       if (!user) {
-        setIsAuthenticated(false);
-        setIsSubmittingScore(false);
         router.push(ROUTES.LOGIN);
         return;
       }
 
-      const { error } = await supabase.from("scores").insert({
-        user_id: user.id,
-        difficulty: game.difficulty,
-        completion_seconds: game.elapsedSeconds,
-        points: finalScore,
-        is_daily_challenge: isDailyMode,
-        challenge_date: isDailyMode ? dailyDate : null
-      });
+      const { error } = await withTimeout(
+        supabase.from("scores").insert({
+          user_id: user.id,
+          difficulty: game.difficulty,
+          completion_seconds: game.elapsedSeconds,
+          points: finalScore,
+          is_daily_challenge: isDailyMode,
+          challenge_date: isDailyMode ? dailyDate : null
+        }),
+        10000,
+        "Score save"
+      );
 
       if (error) {
         throw error;
@@ -403,12 +328,17 @@ export default function SudokuGame() {
 
       localStorage.removeItem(gameStorageKey);
       setSavedScore(true);
+      saved = true;
       router.push(ROUTES.LEADERBOARD);
-    } catch {
+    } catch (error) {
+      console.error("Score save failed", error);
       setStatus(t("game.scoreSaveError"));
-      setIsSubmittingScore(false);
+    } finally {
+      if (!saved) {
+        setIsSubmittingScore(false);
+      }
     }
-  }, [dailyDate, finalScore, game, gameStorageKey, isDailyMode, isSubmittingScore, outcome, router, savedScore, supabaseConfigured, t]);
+  }, [dailyDate, finalScore, game, gameStorageKey, isDailyMode, isSubmittingScore, outcome, router, savedScore, supabaseConfigured, t, user]);
 
   const retryCurrentGrid = useCallback(() => {
     setGame((prev) => {
