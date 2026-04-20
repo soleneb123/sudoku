@@ -75,13 +75,17 @@ function LoginPageContent() {
               (mapError as { status?: number }).status;
             const message = String((mapError as { message?: string }).message ?? "");
 
-            if (status === 503 || /service temporarily unavailable/i.test(message)) {
+            if (status === 404) {
+              throw new Error(t("login.errors.unknownUsername"));
+            }
+
+            if (status === 503 || (typeof status === "number" && status >= 500) || /service temporarily unavailable/i.test(message) || /non-2xx status code/i.test(message)) {
               throw new Error(
                 t("login.errors.usernameSigninUnavailable")
               );
             }
 
-            throw mapError;
+            throw new Error(message || t("login.errors.usernameSigninUnavailable"));
           }
           if (!mapped?.email) {
             throw new Error(t("login.errors.unknownUsername"));
